@@ -86,7 +86,7 @@ func (mr *MockOrderStorageMockRecorder) GetOrdersByUserID(ctx, userID any) *gomo
 }
 
 // SaveOrder mocks base method.
-func (m *MockOrderStorage) SaveOrder(ctx context.Context, order domain.Order) error {
+func (m *MockOrderStorage) SaveOrder(ctx context.Context, order *domain.Order) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveOrder", ctx, order)
 	ret0, _ := ret[0].(error)

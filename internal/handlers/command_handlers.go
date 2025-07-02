@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"order-service/internal/domain/dto"
 	"order-service/internal/mapper"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 // @Failure 500 {object} map[string]string "Failed to create order"
 // @Router /orders [post]
 func (h *Handler) CreateOrder(c *gin.Context) {
+	fmt.Println("Handler CreateOrder called")
 	var req dto.RequestCreateOrder
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		h.Logger.Errorw("Failed to bind request", "error", err)

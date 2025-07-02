@@ -44,6 +44,8 @@ func NewApp() (*App, error) {
 
 	router := gin.Default()
 
+	gin.SetMode(gin.ReleaseMode)
+
 	logger, err := SetupLogger(config.LoggingConfig{
 		Level:             "info",
 		Mode:              "dev",
@@ -74,26 +76,18 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	sidePool, err := cfg.Storage.Side.Connect(context.Background())
-	if err != nil {
-		logger.Errorw("Failed to connect to side database", "error", err)
-		return nil, err
-	}
-
 	logger.Infow("Connected to databases", "mainDB", cfg.Storage.Main.Host, "sideDB", cfg.Storage.Side.Host)
 
 
 	main_txmanager 	 	:= txmanager.NewPgxTxManager(mainPool)
-	side_txmanager 	 	:= txmanager.NewPgxTxManager(sidePool)
 
 	mainOrderStorage 	:= postgres.NewPostgresOrderStorage(main_txmanager)
-	sideOrderStorage 	:= postgres.NewPostgresOrderStorage(side_txmanager)
 	outboxStorage 	 	:= postgres.NewOutboxStorage(main_txmanager)
 
 	redisCache 	     	:= redis.NewRedisCache(cfg.Redis.Address)
 
 	createOrderUseCase 	:= usecase.NewCreateOrderUseCase(mainOrderStorage, outboxStorage, main_txmanager, logger)
-	getOrdersUseCase 	:= usecase.NewGetOrdersUseCase(sideOrderStorage)
+	getOrdersUseCase 	:= usecase.NewGetOrdersUseCase(redisCache)
 	deleteOrderUseCase 	:= usecase.NewDeleteOrderUseCase(mainOrderStorage, outboxStorage, main_txmanager, logger)
 
 	handler 			:= handlers.NewHandler(createOrderUseCase, deleteOrderUseCase, getOrdersUseCase, logger)
@@ -138,7 +132,7 @@ func (a *App) Start() error {
 
 	go func() {
 		a.logger.Infow("Starting worker")
-		if err := a.worker.Run(); err != nil && errors.Is(err, context.Canceled) {
+		if err := a.worker.Run(context.Background()); err != nil && errors.Is(err, context.Canceled) {
 			a.logger.Warnw("Worker stopped", "error", err)
 			return
 		}

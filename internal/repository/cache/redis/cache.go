@@ -1,9 +1,9 @@
 package redis
 
 import (
-	"fmt"
 	"context"
 	"encoding/json"
+	"fmt"
 	"order-service/internal/domain"
 	"order-service/internal/repository/cache"
 
@@ -14,6 +14,29 @@ type redisCache struct {
 	client redis.Client
 }
 
+// GetOrdersByUserID implements cache.Cache.
+func (r *redisCache) GetOrdersByUserID(ctx context.Context, userID int64) ([]domain.Order, error) {
+	key := "orders:" + fmt.Sprint(userID)
+	orderData, err := r.client.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var orders []domain.Order
+	for _, data := range orderData {
+		var order domain.Order
+		if err := json.Unmarshal([]byte(data), &order); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}
+
 // CreateOrder implements cache.Cache.
 func (r *redisCache) CreateOrder(ctx context.Context, order *domain.Order) error {
 	orderData, err := json.Marshal(*order)
@@ -21,9 +44,8 @@ func (r *redisCache) CreateOrder(ctx context.Context, order *domain.Order) error
 		return err
 	}
 
-	key := "order:" + fmt.Sprint(order.ID)
-	err = r.client.Set(ctx, key, orderData, 0).Err()
-	if err != nil {
+	key := "orders:" + fmt.Sprint(order.UserID)
+	if err := r.client.RPush(ctx, key, orderData).Err(); err != nil {
 		return err
 	}
 

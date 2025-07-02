@@ -41,7 +41,6 @@ func (u *deleteOrderUseCase) Execute(ctx context.Context, orderID int64) error {
 	}
 
 	if err := u.txmanager.Run(ctx, func(ctx context.Context) error {
-
 		order, err := u.mainOrderStorage.GetOrderByID(ctx, orderID)
 		if err != nil {
 			u.logger.Errorw("Failed to get order by ID", "error", err, "order_id", orderID)

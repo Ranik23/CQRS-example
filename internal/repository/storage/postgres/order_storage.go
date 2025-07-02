@@ -110,7 +110,7 @@ func (p *postgresOrderStorage) GetOrdersByUserID(ctx context.Context, userID int
 }
 
 // SaveOrder implements storage.OrderStorage.
-func (p *postgresOrderStorage) SaveOrder(ctx context.Context, order domain.Order) error {
+func (p *postgresOrderStorage) SaveOrder(ctx context.Context, order *domain.Order) error {
 	tx := p.txmanager.Tx(ctx)
 
 	query, args, err := p.sq.

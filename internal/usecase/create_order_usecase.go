@@ -27,8 +27,13 @@ func NewCreateOrderUseCase(mainOrderStorage storage.OrderStorage, outboxStorage 
 }
 
 func (u *createOrderUseCase) Execute(ctx context.Context, order domain.Order) error {
+	u.logger.Infow("Executing CreateOrderUseCase", "user_id", order.UserID, "items_count", len(order.Items))
 	if err := u.txmanager.Run(ctx, func(ctx context.Context) error {
-		if err := u.mainOrderStorage.SaveOrder(ctx, order); err != nil {
+		u.logger.Infow("Creating order", "user_id", order.UserID, "items_count", len(order.Items))
+
+		order.CalculateTotalPrice()
+
+		if err := u.mainOrderStorage.SaveOrder(ctx, &order); err != nil {
 			u.logger.Errorw("Failed to save order", "error", err)
 			return err
 		}

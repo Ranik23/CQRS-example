@@ -69,9 +69,9 @@ func NewKafkaConsumer(broker string, topic string) (consumer.Consumer, error) {
 		reader: kafkalib.NewReader(kafkalib.ReaderConfig{
 			Brokers:  []string{broker},
 			Topic:    topic,
-			GroupID:  "order-group", // желательно указывать
-			MinBytes: 10e3,          // 10KB
-			MaxBytes: 10e6,          // 10MB
+			GroupID:  "order-group", 
+			MinBytes: 10e3,          
+			MaxBytes: 10e6,       
 			MaxWait:  1 * time.Minute,
 		}),
 	}, nil

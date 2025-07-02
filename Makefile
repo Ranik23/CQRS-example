@@ -19,6 +19,10 @@ docker:
 	go mod vendor 
 	docker compose up --build
 
+.PHONY: k6
+k6:
+	k6 run test/k6/load.js
+
 .PHONY: goose-setup
 goose-setup:
 	@echo "Installing goose $(GOOSE_VERSION)..."

@@ -7,7 +7,6 @@ type Order struct {
 	UserID      int64		`json:"user_id"`
 	Items 		[]OrderItem `json:"items"`
 	TotalPrice  int64		`json:"total_price"`
-	Status 		string		`json:"status"`
 }
 
 func (o *Order) GetItems() []OrderItem {
@@ -26,6 +25,12 @@ func (o *Order) RemoveItem(item OrderItem) {
 			o.TotalPrice -= existingItem.GetPrice()
 			break
 		}
+	}
+}
+
+func (o *Order) CalculateTotalPrice() {
+	for _, item := range o.Items {
+		o.TotalPrice += item.GetPrice()
 	}
 }
 

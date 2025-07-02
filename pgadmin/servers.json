@@ -1,0 +1,23 @@
+{
+    "Servers": {
+      "1": {
+        "Name": "main-db",
+        "Group": "Servers",
+        "Host": "main",
+        "Port": 5432,
+        "MaintenanceDB": "appdb",
+        "Username": "user",
+        "SSLMode": "prefer"
+      },
+      "2": {
+        "Name": "side-db",
+        "Group": "Servers",
+        "Host": "side",
+        "Port": 5432,
+        "MaintenanceDB": "appdb",
+        "Username": "user",
+        "SSLMode": "prefer"
+      }
+    }
+  }
+  

@@ -58,7 +58,7 @@ func NewApp() (*App, error) {
 		CapitalizeLevel:    true,
 		InitialFields: map[string]interface{}{
 			"service": "order-service",
-			"env":     "productio",
+			"env":     "production",
 		},
 	})
 	if err != nil {
@@ -92,15 +92,19 @@ func NewApp() (*App, error) {
 
 	handler 			:= handlers.NewHandler(createOrderUseCase, deleteOrderUseCase, getOrdersUseCase, logger)
 
-	consumer, err 		:= kafkaconsumer.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
+
+	groupID 		    := "order-group"
+	consumer, err 		:= kafkaconsumer.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.Topic, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
 	producer 			:= kafkaproducer.NewKafkaProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic) 
 
-	worker 				:= worker.NewWorker(producer, consumer, outboxStorage, main_txmanager, logger)
+	worker 				:= worker.NewWorker(producer, consumer, outboxStorage, main_txmanager, logger, mainPool,
+							cfg.Storage.Main.OutboxTable.BatchSize, cfg.Storage.Main.OutboxTable.NumWorkers)
 
-	projectionWorker 	:= projectionworker.NewProjectionWorker(consumer, redisCache, logger)
+
+	projectionWorker 	:= projectionworker.NewProjectionWorker(redisCache, logger, cfg)
 
 	SetRoutes(router, handler)
 	
@@ -132,7 +136,7 @@ func (a *App) Start() error {
 
 	go func() {
 		a.logger.Infow("Starting worker")
-		if err := a.worker.Run(context.Background()); err != nil && errors.Is(err, context.Canceled) {
+		if err := a.worker.Run(); err != nil && errors.Is(err, context.Canceled) {
 			a.logger.Warnw("Worker stopped", "error", err)
 			return
 		}

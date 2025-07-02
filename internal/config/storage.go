@@ -24,6 +24,7 @@ type PostgresConfig struct {
 	Database           string     `mapstructure:"dbname"`
 	ConnectionAttempts int        `mapstructure:"connection_attempts"`
 	PoolConfig         PoolConfig `mapstructure:"pool"`
+	OutboxTable        OutboxConfig `mapstructure:"outbox_table"`
 }
 
 type PoolConfig struct {
@@ -32,6 +33,11 @@ type PoolConfig struct {
 	MaxLifeTime       int `mapstructure:"max_lifetime"`
 	MaxIdleTime       int `mapstructure:"max_idle_time"`
 	HealthCheckPeriod int `mapstructure:"health_check_period"`
+}
+
+type OutboxConfig struct {
+	BatchSize   int `mapstructure:"batch_size"`
+	NumWorkers  int `mapstructure:"num_workers"`
 }
 
 func (s *PostgresConfig) GetDSN() string {

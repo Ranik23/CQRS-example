@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
-CREATE TYPE outbox_status AS ENUM ('not sent', 'sent');
+CREATE TYPE outbox_status AS ENUM ('not sent', 'sent', 'processing');
 
 CREATE TABLE outbox (
     id SERIAL PRIMARY KEY,

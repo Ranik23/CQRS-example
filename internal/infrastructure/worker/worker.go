@@ -7,11 +7,12 @@ import (
 	"order-service/internal/infrastructure/producer"
 	"order-service/internal/models"
 	"order-service/internal/repository/storage"
-	"order-service/internal/repository/storage/errs"
 	"order-service/pkg/logger"
 	"order-service/pkg/txmanager"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,55 +21,57 @@ type Worker struct {
 	producer      producer.Producer
 	consumer      consumer.Consumer
 	txmanager     txmanager.TxManager
+	pool          *pgxpool.Pool
 
 	logger logger.Logger
-	ctx context.Context
+	ctx    context.Context
 	cancel context.CancelFunc
+
+	numWorker int
+	batchSize int
 }
 
-func NewWorker(producer producer.Producer, consumer consumer.Consumer, outboxStorage storage.OutboxStorage, txmanager txmanager.TxManager, logger logger.Logger) *Worker {
+func NewWorker(producer producer.Producer, consumer consumer.Consumer, outboxStorage storage.OutboxStorage,
+	txmanager txmanager.TxManager, logger logger.Logger, pool *pgxpool.Pool, numWorker int, batchSize int) *Worker {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &Worker{
 		producer:      producer,
 		consumer:      consumer,
 		outboxStorage: outboxStorage,
-		txmanager:     txmanager,	
+		txmanager:     txmanager,
 		logger:        logger,
 		ctx:           ctx,
 		cancel:        cancelFunc,
+		pool:          pool,
+		numWorker:     numWorker,
+		batchSize:     batchSize,
 	}
 }
 
-func (w *Worker) Run(ctx context.Context) error {
+func (w *Worker) Run() error {
 	w.logger.Infow("Worker started")
 	defer w.logger.Infow("Worker stopped")
 
-	g, ctx := errgroup.WithContext(ctx)
+	g, errctx := errgroup.WithContext(context.Background())
 
-	const workerCount = 10
-	for i := 0; i < workerCount; i++ {
+	for workerID := 0; workerID < w.numWorker; workerID++ {
 		g.Go(func() error {
-			return w.dispatchWorker(ctx, i)
-		})
-		time.Sleep(1 * time.Second)
-	}
-
-	return g.Wait()
-}
-
-func (w *Worker) dispatchWorker(ctx context.Context, workerID int) error {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case <-ticker.C:
-			if err := w.dispatchEvent(ctx); err != nil {
-				w.logger.Errorw("Dispatch failed", "error", err, "workerID", workerID)
+			w.logger.Infow("Starting dispatch worker", "workerID", workerID)
+			if err := w.dispatchWorker(w.ctx, errctx, workerID); err != nil && !errors.Is(err, context.Canceled) {
+				w.logger.Errorw("Dispatch Worker failed", "error", err, "workerID", workerID)
+				return err
 			}
-		}
+			w.logger.Infow("Dispatch Worker finished", "workerID", workerID)
+			return nil
+		})
 	}
+
+	if err := g.Wait(); err != nil {
+		w.logger.Errorw("Worker encountered an error", "error", err)
+		return err
+	}
+
+	return nil
 }
 
 func (w *Worker) Stop() {
@@ -76,48 +79,131 @@ func (w *Worker) Stop() {
 	w.logger.Infow("Worker stopped")
 }
 
-func (w *Worker) dispatchEvent(ctx context.Context) error {
-	var msg *models.OutboxMessage
-
-	if err := w.txmanager.Run(ctx, func(ctx context.Context) error {
-		var err error
-		msg, err = w.outboxStorage.GetOutBoxMessage(ctx)
-		if err != nil {
-			if errors.Is(err, errs.ErrNoFound) {
-				w.logger.Debugw("No outbox message found, waiting for next tick")
-				return nil
+func (w *Worker) dispatchWorker(ctx context.Context, errctx context.Context, workerID int) error {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	w.logger.Infow("Dispatch Worker started", "workerID", workerID)
+	for {
+		select {
+		case <-ctx.Done():
+			w.logger.Infow("Dispatch Worker stopping due to ctx done", "workerID", workerID)
+			return context.Canceled
+		case <-errctx.Done():
+			w.logger.Infow("Dispatch Worker stopping due to errgroup ctx done", "workerID", workerID)
+			return errctx.Err()
+		case <-ticker.C:
+			w.logger.Debugw("Worker tick", "workerID", workerID)
+			if err := w.dispatchEvent(ctx); err != nil {
+				w.logger.Errorw("Dispatch event failed", "error", err, "workerID", workerID)
+			} else {
+				w.logger.Debugw("Dispatch event succeeded", "workerID", workerID)
 			}
-			w.logger.Errorw("Failed to fetch message from outbox", "error", err)
-			return err
 		}
-		return nil
-	}); err != nil {
-		w.logger.Errorw("Transaction failed", "error", err)
-		return err 
 	}
+}
+func (w *Worker) dispatchEvent(ctx context.Context) error {
+	w.logger.Debug("Attempting to dispatch event")
 
-	if msg == nil {
-		w.logger.Debugw("No message to process, skipping")
-		return nil
-	}
-
-	if err := w.producer.Produce(ctx, []byte(msg.Key), msg.Message); err != nil {
-		w.logger.Errorw("Failed to produce message", "error", err, "messageID", msg.ID)
+	tx, err := w.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		w.logger.Errorw("Failed to begin transaction", "error", err)
 		return err
 	}
-	
-	if err := w.txmanager.Run(ctx, func(ctx context.Context) error {
-		if err := w.outboxStorage.MarkAsSent(ctx, msg.ID); err != nil {
-			w.logger.Errorw("Failed to mark message as sent", "error", err, "messageID", msg.ID)
+	defer func() {
+		if tx != nil {
+			if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+				w.logger.Errorw("Failed to rollback transaction", "error", err)
+			}
+		}
+	}()
+
+	rows, err := tx.Query(ctx,
+		`
+		WITH next_messages AS (
+			SELECT id
+			FROM outbox
+			WHERE status IN ('not sent', 'processing')
+			ORDER BY created_at ASC
+			LIMIT $1
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE outbox
+		SET status = 'processing'
+		WHERE id IN (SELECT id FROM next_messages)
+		RETURNING id, status, key, message
+		`, w.batchSize)
+
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var msgs []models.OutboxMessage
+	for rows.Next() {
+		var m models.OutboxMessage
+		if err := rows.Scan(&m.ID, &m.Sent, &m.Key, &m.Message); err != nil {
 			return err
 		}
+		msgs = append(msgs, m)
+	}
+
+	if len(msgs) == 0 {
+		w.logger.Debugw("No outbox messages to process")
+		tx = nil
 		return nil
-	}); err != nil {
-		w.logger.Errorw("Transaction failed", "error", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		w.logger.Errorw("Failed to commit transaction", "error", err)
+		return err
+	}
+	tx = nil
+
+	// Отправляем сообщения в брокер
+	for _, msg := range msgs {
+		if err := w.producer.Produce(ctx, []byte(msg.Key), msg.Message); err != nil {
+			w.logger.Errorw("Failed to produce message to broker", "error", err, "messageID", msg.ID)
+			return err
+		}
+		w.logger.Infow("Produced message to broker", "messageID", msg.ID)
+	}
+
+	// Обновляем статус всех сообщений сразу
+	tx2, err := w.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		w.logger.Errorw("Failed to begin transaction for marking as sent", "error", err)
+		return err
+	}
+	defer func() {
+		if tx2 != nil {
+			if err := tx2.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+				w.logger.Errorw("Failed to rollback transaction", "error", err)
+			}
+		}
+	}()
+
+	// Собираем все ID сообщений в срез
+	ids := make([]int64, 0, len(msgs))
+	for _, m := range msgs {
+		ids = append(ids, m.ID)
+	}
+
+	// Обновляем статусы батчем
+	_, err = tx2.Exec(ctx,
+		`UPDATE outbox SET status = 'sent' WHERE id = ANY($1)`,
+		ids)
+	if err != nil {
+		w.logger.Errorw("Failed to update outbox messages status to sent", "error", err)
 		return err
 	}
 
-	w.logger.Infow("Message produced and marked as sent", "message", string(msg.Message))
+	if err := tx2.Commit(ctx); err != nil {
+		w.logger.Errorw("Failed to commit transaction for marking as sent", "error", err)
+		return err
+	}
+	tx2 = nil
+
+	w.logger.Infow("Marked outbox messages as sent", "count", len(msgs))
 
 	return nil
 }

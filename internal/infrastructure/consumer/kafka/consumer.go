@@ -23,7 +23,7 @@ func (k *kafkaConsumer) Consume(ctx context.Context) (value []byte, key []byte, 
 	return message.Value, message.Key, nil
 }
 
-func NewKafkaConsumer(broker string, topic string) (consumer.Consumer, error) {
+func NewKafkaConsumer(broker string, topic string, groupID string) (consumer.Consumer, error) {
 	var err error
 	var conn *kafkalib.Conn
 
@@ -69,7 +69,7 @@ func NewKafkaConsumer(broker string, topic string) (consumer.Consumer, error) {
 		reader: kafkalib.NewReader(kafkalib.ReaderConfig{
 			Brokers:  []string{broker},
 			Topic:    topic,
-			GroupID:  "order-group", 
+			GroupID:  groupID, 
 			MinBytes: 10e3,          
 			MaxBytes: 10e6,       
 			MaxWait:  1 * time.Minute,

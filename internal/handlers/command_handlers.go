@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"order-service/internal/domain/dto"
-	"order-service/internal/mapper"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -22,13 +20,13 @@ import (
 // @Router /orders [post]
 func (h *Handler) CreateOrder(c *gin.Context) {
 	fmt.Println("Handler CreateOrder called")
-	var req dto.RequestCreateOrder
+	var req RequestCreateOrder
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		h.Logger.Errorw("Failed to bind request", "error", err)
 		c.JSON(400, gin.H{"error": "Invalid request"})
 		return
 	}
-	if err := h.CreateOrderUseCase.Execute(c, mapper.FromRequestCreateOrderToDomainOrder(req)); err != nil {
+	if err := h.CreateOrderUseCase.Execute(c, FromRequestCreateOrderToDomainOrder(req)); err != nil {
 		h.Logger.Errorw("Failed to create order", "error", err)
 		c.JSON(500, gin.H{"error": "Failed to create order"})
 		return 

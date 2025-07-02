@@ -1,13 +1,12 @@
-package mapper
+package handlers
 
 import (
 	"order-service/internal/domain"
-	"order-service/internal/domain/dto"
 )
 
 
 
-func FromRequestCreateOrderToDomainOrder(req dto.RequestCreateOrder) domain.Order {
+func FromRequestCreateOrderToDomainOrder(req RequestCreateOrder) domain.Order {
 	order := domain.Order{
 		UserID: req.UserID,
 		Items:  make([]domain.OrderItem, len(req.Items)),

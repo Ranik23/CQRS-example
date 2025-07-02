@@ -1,5 +1,7 @@
 package domain
 
+import "errors"
+
 
 
 type Order struct {
@@ -13,9 +15,19 @@ func (o *Order) GetItems() []OrderItem {
 	return o.Items
 }
 
-func (o *Order) AddItem(item OrderItem) {
+func (o *Order) AddItem(item OrderItem) error {
+	if item.GetPrice() <= 0 {
+		return errors.New("item price must be greater than zero")
+	}
+
+	if item.GetName() == "" {
+		return errors.New("item name cannot be empty")
+	}
+
 	o.Items = append(o.Items, item)
 	o.TotalPrice += item.GetPrice()
+
+	return nil
 }
 
 func (o *Order) RemoveItem(item OrderItem) {
@@ -29,6 +41,7 @@ func (o *Order) RemoveItem(item OrderItem) {
 }
 
 func (o *Order) CalculateTotalPrice() {
+	o.TotalPrice = 0
 	for _, item := range o.Items {
 		o.TotalPrice += item.GetPrice()
 	}

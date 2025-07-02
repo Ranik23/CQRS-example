@@ -4,10 +4,6 @@ import "github.com/gin-gonic/gin"
 
 
 
-type RequestGetOrderItems struct {
-	UserID int64 `json:"customer_id" binding:"required"`
-}
-
 func (h *Handler) GetOrderItems(c *gin.Context){
 	var req RequestGetOrderItems
 	if err := c.ShouldBindJSON(&req); err != nil {

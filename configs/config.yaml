@@ -3,6 +3,7 @@ kafka:
   topics: order-events
   group_id: "order-group"
   num_workers: 20
+  num_partitions: 10
 
 redis:
   address: "localhost:6379"
@@ -15,7 +16,7 @@ storage:
     password: password
     dbname: dbname
     pool:
-      max_connections: 500
+      max_connections: 100
       min_connections: 20
       max_lifetime: 3600
       max_idle_time: 300

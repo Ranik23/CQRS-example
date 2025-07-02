@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"order-service/internal/config"
 	"order-service/internal/infrastructure/consumer"
 
 	kafkalib "github.com/segmentio/kafka-go"
@@ -23,7 +24,7 @@ func (k *kafkaConsumer) Consume(ctx context.Context) (value []byte, key []byte, 
 	return message.Value, message.Key, nil
 }
 
-func NewKafkaConsumer(broker string, topic string, groupID string) (consumer.Consumer, error) {
+func NewKafkaConsumer(broker string, config *config.Config) (consumer.Consumer, error) {
 	var err error
 	var conn *kafkalib.Conn
 
@@ -57,8 +58,8 @@ func NewKafkaConsumer(broker string, topic string, groupID string) (consumer.Con
 
 	topicConfigs := []kafkalib.TopicConfig{
 		{
-			Topic:             topic,
-			NumPartitions:     1,
+			Topic:             config.Kafka.Topic,
+			NumPartitions:     config.Kafka.NumPartitions,
 			ReplicationFactor: 1,
 		},
 	}
@@ -68,8 +69,8 @@ func NewKafkaConsumer(broker string, topic string, groupID string) (consumer.Con
 	return &kafkaConsumer{
 		reader: kafkalib.NewReader(kafkalib.ReaderConfig{
 			Brokers:  []string{broker},
-			Topic:    topic,
-			GroupID:  groupID, 
+			Topic:    config.Kafka.Topic,
+			GroupID:  config.Kafka.GroupID, 
 			MinBytes: 10e3,          
 			MaxBytes: 10e6,       
 			MaxWait:  1 * time.Minute,

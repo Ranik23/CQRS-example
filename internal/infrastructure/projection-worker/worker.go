@@ -20,8 +20,8 @@ type ProjectionWorker struct {
 	cfg                 *config.Config
 
 
-	ctx 			  context.Context
-	cancel            context.CancelFunc
+	ctx 			 	context.Context
+	cancel            	context.CancelFunc
 }
 
 func NewProjectionWorker(cache cache.Cache, logger logger.Logger, config *config.Config) *ProjectionWorker {
@@ -43,7 +43,7 @@ func (w *ProjectionWorker) Run() error {
 
 	for workerID := 0; workerID < w.cfg.Kafka.NumWorkers; workerID++ {
 		g.Go(func() error {
-			consumer, err := kafka.NewKafkaConsumer(w.cfg.Kafka.Brokers, w.cfg.Kafka.Topic, w.cfg.Kafka.GroupID)
+			consumer, err := kafka.NewKafkaConsumer(w.cfg.Kafka.Brokers, w.cfg)
 			if err != nil {
 				w.logger.Errorw("Failed to create Kafka consumer", "error", err)
 				return err

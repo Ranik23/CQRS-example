@@ -15,8 +15,10 @@ setup: goose-setup mockgen-setup
 
 .PHONY: docker
 docker:
-	go mod tidy 
-	go mod vendor 
+	go mod tidy
+	go mod vendor
+	docker rm -f $$(docker ps -aq) || true
+	docker volume rm $$(docker volume ls -q) || true
 	docker compose up --build
 
 .PHONY: k6

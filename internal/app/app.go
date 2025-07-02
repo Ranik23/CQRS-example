@@ -92,9 +92,7 @@ func NewApp() (*App, error) {
 
 	handler 			:= handlers.NewHandler(createOrderUseCase, deleteOrderUseCase, getOrdersUseCase, logger)
 
-
-	groupID 		    := "order-group"
-	consumer, err 		:= kafkaconsumer.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.Topic, groupID)
+	consumer, err 		:= kafkaconsumer.NewKafkaConsumer(cfg.Kafka.Brokers, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}

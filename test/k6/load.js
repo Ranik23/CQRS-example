@@ -4,7 +4,7 @@ import { Counter } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export let options = {
-  vus: 30,
+  vus: 50,
   duration: '30s',
 };
 

@@ -39,7 +39,15 @@ func (u *createOrderUseCase) Execute(ctx context.Context, order domain.Order) er
 		}
 		u.logger.Infow("Order saved", "order_id", order.ID, "user_id", order.UserID)
 
-		orderBytes, err := json.Marshal(order)
+
+		orderCreatedEvent := domain.OrderCreatedEvent{
+			OrderID: 	order.ID,
+			CustomerID: order.UserID,
+			Items:      order.Items,
+			TotalAmount: order.TotalPrice,
+		}
+
+		orderBytes, err := json.Marshal(orderCreatedEvent)
 		if err != nil {
 			u.logger.Errorw("Failed to marshal order", "error", err)
 			return err

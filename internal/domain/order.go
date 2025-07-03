@@ -2,17 +2,50 @@ package domain
 
 import "errors"
 
-
-
 type Order struct {
-	ID		    int64		`json:"id"`
-	UserID      int64		`json:"user_id"`
-	Items 		[]OrderItem `json:"items"`
-	TotalPrice  int64		`json:"total_price"`
+	ID         int64       `json:"id"`
+	UserID     int64       `json:"user_id"`
+	Items      []OrderItem `json:"items"`
+	TotalPrice int64       `json:"total_price"`
+
+	events []Event `json:"-"`
+}
+
+func NewOrder(events []Event) *Order {
+	order := &Order{}
+
+	for _, event := range events {
+		order.On(event)
+	}
+
+	return order
+}
+
+func (o *Order) On(event Event) {
+	o.events = append(o.events, event)
+	switch e := event.(type) {
+	case OrderCreatedEvent:
+		o.ID = e.OrderID
+		o.UserID = e.CustomerID
+		o.Items = e.Items
+		o.TotalPrice = e.TotalAmount
+	case OrderDeletedEvent:
+		o = nil // warning
+	case ItemAddedEvent:
+		o.AddItem(e.Item)
+	}
 }
 
 func (o *Order) GetItems() []OrderItem {
 	return o.Items
+}
+
+func (o *Order) GetTotalPrice() int64 {
+	return o.TotalPrice
+}
+
+func (o *Order) GetEvents() []Event {
+	return o.events
 }
 
 func (o *Order) AddItem(item OrderItem) error {
@@ -45,8 +78,4 @@ func (o *Order) CalculateTotalPrice() {
 	for _, item := range o.Items {
 		o.TotalPrice += item.GetPrice()
 	}
-}
-
-func (o *Order) GetTotalPrice() int64 {
-	return o.TotalPrice
 }

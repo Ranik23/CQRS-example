@@ -122,7 +122,7 @@ func (w *Worker) dispatchEvent(ctx context.Context) error {
 		WITH next_messages AS (
 			SELECT id
 			FROM outbox
-			WHERE status IN ('not sent', 'processing')
+			WHERE status IN ('not sent')
 			ORDER BY created_at ASC
 			LIMIT $1
 			FOR UPDATE SKIP LOCKED

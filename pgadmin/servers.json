@@ -8,15 +8,6 @@
         "MaintenanceDB": "appdb",
         "Username": "user",
         "SSLMode": "prefer"
-      },
-      "2": {
-        "Name": "side-db",
-        "Group": "Servers",
-        "Host": "side",
-        "Port": 5432,
-        "MaintenanceDB": "appdb",
-        "Username": "user",
-        "SSLMode": "prefer"
       }
     }
   }

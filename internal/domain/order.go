@@ -21,6 +21,7 @@ func NewOrder(events []Event) *Order {
 	return order
 }
 
+
 func (o *Order) On(event Event) {
 	o.events = append(o.events, event)
 	switch e := event.(type) {

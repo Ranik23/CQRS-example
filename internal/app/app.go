@@ -8,9 +8,9 @@ import (
 	"order-service/internal/config"
 	"order-service/internal/handlers"
 	kafkaconsumer "order-service/internal/infrastructure/consumer/kafka"
+	"order-service/internal/infrastructure/outbox-worker"
 	kafkaproducer "order-service/internal/infrastructure/producer/kafka"
 	projectionworker "order-service/internal/infrastructure/projection-worker"
-	"order-service/internal/infrastructure/outbox-worker"
 	"order-service/internal/repository/cache/redis"
 	"order-service/internal/repository/storage/postgres"
 	"order-service/internal/usecase"
@@ -52,7 +52,7 @@ func NewApp() (*App, error) {
 		Encoding:          "console",
 		DisableCaller:     true,
 		DisableStacktrace: true,
-		OutputPaths:       []string{"stdout"},
+		OutputPaths:       []string{"stdout", "app.log"},
 		ErrorOutputPaths:  []string{"stderr"},
 		TimestampKey: 		"timestamp",
 		CapitalizeLevel:    true,

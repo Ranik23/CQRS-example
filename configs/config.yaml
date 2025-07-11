@@ -2,7 +2,7 @@ kafka:
   brokers: "localhost:9092"
   topics: order-events
   group_id: "order-group"
-  num_workers: 20
+  num_workers: 1
   num_partitions: 10
 
 redis:

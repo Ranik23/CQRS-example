@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y postgresql-client && apt-get install -y
 COPY . .
 
 # Build the binary
-RUN go build -mod=vendor -o main ./cmd/main.go
+RUN go build -mod=vendor -o main ./cmd/main/main.go
 
 # Make entrypoint executable
 RUN chmod +x /app/entrypoint.sh

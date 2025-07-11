@@ -1,0 +1,17 @@
+FROM python:latest
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y cron && apt-get clean
+
+COPY cmd/etl/main.py .
+COPY etl-cron /etc/cron.d/etl-cron
+
+# Права и регистрация cron
+RUN chmod 0644 /etc/cron.d/etl-cron && crontab /etc/cron.d/etl-cron
+
+# Запуск cron
+CMD ["cron", "-f"]
